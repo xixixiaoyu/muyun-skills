@@ -267,3 +267,119 @@ class ErrorBoundary extends React.Component {
 | **内存泄漏** | 未清理的定时器/订阅 | useEffect cleanup 中清理 |
 | **派生状态** | state 可以从 props 计算出来 | 直接在 render 中计算 |
 | **索引作 key** | 列表排序/增删时出现问题 | 使用稳定唯一 ID |
+
+---
+
+## React Server Components（RSC）
+
+### 服务端/客户端边界
+
+```jsx
+// 危险：服务端组件中使用客户端特性
+// server-component.tsx
+'use server'
+export default function ServerComp() {
+  const [state, setState] = useState(null)  // ❌ RSC 中不能使用 Hooks
+  useEffect(() => {}, [])                     // ❌ RSC 中不能使用 Effect
+  return <div onClick={handler}>...</div>    // ❌ RSC 中不能使用事件处理器
+}
+
+// 推荐：明确分离服务端和客户端组件
+// server-component.tsx — 纯数据获取和渲染
+export default async function ServerComp() {
+  const data = await fetchData()
+  return <ClientComp initialData={data} />
+}
+
+// client-component.tsx
+'use client'
+export default function ClientComp({ initialData }) {
+  const [state, setState] = useState(initialData)
+  // ... 交互逻辑
+}
+```
+
+### 敏感数据泄露
+
+- **服务端组件中暴露密钥**：RSC 中直接 `import` 的 `process.env.X` 不会到客户端，但作为 props 传递的数据会
+- **"use client" 边界**：标记为客户端组件后，其子树默认也变为客户端（除非被服务端组件再次包裹）
+- **Serialization 陷阱**：RSC props 必须可序列化，函数和 Class 实例无法传递
+
+### Next.js 特定检查
+
+- **`getServerSideProps` / Server Actions 中的密钥**：这些在服务端执行，确保不将敏感数据返回给客户端
+- **Route Handlers 的认证**：`route.ts` 中的 API 路由独立于 middleware 配置
+- **Middleware 的作用域**：Next.js middleware 在 Edge 运行，不能使用 Node.js API
+- **ISR/SSG 缓存**：`revalidate` 配置不当可能导致过期数据或过于频繁的重新生成
+
+---
+
+## React 18+ 并发特性
+
+### useTransition / useDeferredValue
+
+```jsx
+// 危险：昂贵更新阻塞用户交互
+const [query, setQuery] = useState('')
+const filteredList = list.filter(item => item.name.includes(query))
+// 用户输入时列表过滤卡顿
+
+// 推荐：将非紧急更新标记为 transition
+const [query, setQuery] = useState('')
+const [isPending, startTransition] = useTransition()
+
+const handleChange = (e) => {
+  setInputValue(e.target.value)  // 紧急：更新输入框
+  startTransition(() => {
+    setQuery(e.target.value)     // 非紧急：可中断的列表过滤
+  })
+}
+
+// 或使用 useDeferredValue
+const deferredQuery = useDeferredValue(query)
+const filteredList = useMemo(
+  () => list.filter(item => item.name.includes(deferredQuery)),
+  [deferredQuery]
+)
+```
+
+### 并发特性检查点
+
+- [ ] 复杂列表过滤时是否使用 `useDeferredValue` 避免输入卡顿？
+- [ ] Tab/路由切换是否使用 `useTransition` 保持 UI 响应？
+- [ ] 是否错误地在 transition 中使用了 `useEffect` 等待状态变化？（应直接使用 `isPending`）
+- [ ] `Suspense` 的 fallback 是否合理（不是空白页）？
+
+---
+
+## Suspense 数据获取
+
+```jsx
+// 推荐：Suspense + React 19 use() hook
+function UserProfile({ userId }) {
+  return (
+    <Suspense fallback={<ProfileSkeleton />}>
+      <UserData userId={userId} />
+    </Suspense>
+  )
+}
+
+async function UserData({ userId }) {
+  const user = await fetchUser(userId)  // RSC 中直接 await
+  return <div>{user.name}</div>
+}
+
+// 推荐：ErrorBoundary + Suspense 组合
+<Suspense fallback={<Loading />}>
+  <ErrorBoundary fallback={<ErrorUI />}>
+    <AsyncComponent />
+  </ErrorBoundary>
+</Suspense>
+```
+
+### Suspense 数据获取检查点
+
+- [ ] 异步组件外层是否包裹了 `<Suspense>` 提供加载状态？
+- [ ] 是否搭配了 `<ErrorBoundary>` 处理加载失败？
+- [ ] 多个独立数据源是否使用独立 Suspense 边界（避免瀑布式等待）？
+- [ ] Suspense 嵌套层级是否合理（不过浅导致全屏 loading，不过深导致 UI 跳动）？

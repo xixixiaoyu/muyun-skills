@@ -1,13 +1,13 @@
 ---
 name: code-review-expert
-description: "Expert code review on git changes. Detects SOLID violations, security risks (XSS, injection, race conditions), performance and error handling issues. Supports React and Vue."
+description: "Expert code review on git changes. Frontend-focused (React & Vue). Detects SOLID violations, security risks (XSS, injection, race conditions), performance, error handling, a11y, i18n and testing issues. Includes code removal planning."
 ---
 
 # 代码审查专家
 
 ## 概述
 
-对当前 git 变更执行结构化审查，聚焦 SOLID 原则、架构设计、待移除代码和安全风险。默认仅输出审查结果，除非用户明确要求实施修改。
+对当前 git 变更执行结构化审查，聚焦 SOLID 原则、架构设计、待移除代码和安全风险。目前以前端项目为主（React、Vue），后端代码审查能力有限。默认仅输出审查结果，除非用户明确要求实施修改。
 
 ## 严重级别
 
@@ -24,7 +24,8 @@ description: "Expert code review on git changes. Detects SOLID violations, secur
 
 - 使用 `git status -sb`、`git diff --stat` 和 `git diff` 确定变更范围。
 - 识别技术栈：检查 `package.json` 依赖（react、vue 等）、文件扩展名（.tsx、.vue 等）、配置文件（vite.config.ts 等）。
-- 如需要，使用 `rg` 或 `grep` 查找相关模块、引用和契约。
+- 对于 monorepo 项目，检查 `pnpm-workspace.yaml`、`lerna.json`、`turbo.json`、`nx.json` 等配置，确定变更影响的工作区范围。
+- 如需要，使用 `grep_code` 或 `search_codebase` 工具查找相关模块、引用和契约。避免使用终端命令进行代码搜索。
 - 识别入口点、所有权边界和关键路径（认证、支付、数据写入、网络）。
 
 **边界情况：**
@@ -76,6 +77,12 @@ description: "Expert code review on git changes. Detects SOLID violations, secur
   - **性能**：N+1 查询、热路径 CPU 密集操作、缺失缓存、无界内存
   - **边界条件**：null/undefined 处理、空集合、数值边界、off-by-one
 - 标记可能导致静默失败或生产事故的问题。
+
+#### 可选深度检查（根据项目特征酌情启用）
+
+- **测试质量**（如项目含测试文件）：变更是否伴随测试、测试是否覆盖边界条件和异常路径、Mock 是否合理、是否存在 flaky test 模式。
+- **可访问性 a11y**（含 UI 组件变更）：ARIA 属性缺失或误用、语义化 HTML 标签、键盘导航支持、屏幕阅读器兼容性、颜色对比度、焦点管理。
+- **国际化 i18n**（含用户可见文案变更）：硬编码文案未使用 i18n 函数、RTL 布局适配、日期/数字/货币格式化未使用 `Intl` 或 locale 感知 API。
 
 ### 6) 输出格式
 
@@ -131,7 +138,17 @@ description: "Expert code review on git changes. Detects SOLID violations, secur
 ::
 ```
 
-**干净审查**：如未发现问题，明确说明：
+**格式选择**：默认使用 Markdown 引用格式。仅在平台明确支持代码评论（如 GitLab MR、Gitee PR）时使用 `::code-comment` 增强格式，避免混用。
+
+**干净审查**：如未发现问题，必须逐项确认以下核心维度已检查：
+
+1. **XSS 与注入风险** - 无未过滤的 HTML/URL/SQL 注入
+2. **错误处理** - 无沉默吞掉异常、无缺失异步错误处理
+3. **Null/边界安全** - 无不安全的属性访问、无除零/越界风险
+4. **竞态条件** - 无请求竞态、无过期状态更新
+5. **敏感数据** - 无密钥/Token 泄露到客户端或日志
+
+确认后补充说明：
 - 检查了什么
 - 未覆盖的区域（如"未验证数据库迁移"）
 - 残留风险或建议的后续测试
@@ -167,7 +184,7 @@ description: "Expert code review on git changes. Detects SOLID violations, secur
 |------|------|
 | `solid-checklist.md` | SOLID 异味提示和重构启发式 |
 | `security-checklist.md` | Web/应用安全和运行时风险清单 |
-| `code-quality-checklist.md` | 错误处理、性能、边界条件 |
+| `code-quality-checklist.md` | 错误处理、性能、边界条件、类型安全、测试质量、a11y、i18n |
 | `removal-plan.md` | 删除候选和跟进计划模板 |
 
 ### references/frameworks/
@@ -176,5 +193,5 @@ description: "Expert code review on git changes. Detects SOLID violations, secur
 
 | 文件 | 用途 |
 |------|------|
-| `react.md` | React 特定：Hooks、re-render、useEffect、竞态条件 |
-| `vue.md` | Vue 特定：响应式、Composition API、watch 竞态 |
+| `react.md` | React 特定：Hooks、re-render、useEffect、RSC、Next.js、Suspense、并发特性 |
+| `vue.md` | Vue 特定：响应式、Composition API、Suspense、defineModel、Teleport、Nuxt.js |

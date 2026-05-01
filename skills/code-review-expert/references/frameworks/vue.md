@@ -344,3 +344,137 @@ this.items.splice(0, 1, newValue)
 | **在 watch 中修改被监听值** | 可能无限循环 | 使用 computed 替代 |
 | **未清理的定时器/订阅** | 内存泄漏 | onBeforeUnmount 中清理 |
 | **$refs 直接操作 DOM** | 绕过 Vue 响应式 | 使用响应式数据驱动 |
+
+---
+
+## Vue 3 `<Suspense>`
+
+```vue
+<!-- 推荐：包裹异步组件 -->
+<template>
+  <Suspense>
+    <template #default>
+      <AsyncDashboard />
+    </template>
+    <template #fallback>
+      <DashboardSkeleton />
+    </template>
+  </Suspense>
+</template>
+
+<script setup>
+// AsyncDashboard.vue 中使用 await
+// <script setup>
+// const data = await fetchDashboard()
+// </script>
+</script>
+```
+
+### Suspense 检查点
+
+- [ ] 异步组件外层是否包裹了 `<Suspense>` 提供加载状态？
+- [ ] 是否搭配了 `onErrorCaptured` 或 error boundary 处理加载失败？
+- [ ] 多个独立数据源是否使用嵌套 `<Suspense>` 避免瀑布式等待？
+- [ ] `#fallback` 内容是否合理（不是空白）？
+- [ ] 是否错误地在非异步 setup 组件中使用 `<Suspense>`？（无效果）
+
+---
+
+## `defineModel`（Vue 3.4+）
+
+```vue
+<!-- 传统方式：手动 emit -->
+<script setup>
+const props = defineProps<{ modelValue: string }>()
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+</script>
+<template>
+  <input :value="props.modelValue" @input="emit('update:modelValue', $event.target.value)" />
+</template>
+
+<!-- Vue 3.4+ 推荐：defineModel 简化 v-model -->
+<script setup>
+const model = defineModel<string>({ required: true })
+</script>
+<template>
+  <input v-model="model" />
+</template>
+
+<!-- 多个 v-model -->
+<script setup>
+const firstName = defineModel<string>('firstName', { required: true })
+const lastName = defineModel<string>('lastName', { default: '' })
+</script>
+```
+
+### defineModel 检查点
+
+- [ ] 是否过度使用 `defineModel` 导致双向绑定链路复杂难以追踪？
+- [ ] `defineModel` 返回值是否被直接修改（绕过了 setter 逻辑）？
+- [ ] 对于需要转换/验证的场景，是否仍使用传统的 props + emit 模式？
+
+---
+
+## `<Teleport>` 安全
+
+```vue
+<!-- 危险：Teleport 到未受控的 DOM 位置 -->
+<template>
+  <Teleport to="body">
+    <div v-html="userContent"></div>  <!-- XSS 风险扩展到全局 DOM -->
+  </Teleport>
+</template>
+
+<!-- 推荐：Teleport 配合安全措施 -->
+<template>
+  <Teleport to="#modal-root">
+    <div class="modal" role="dialog" aria-modal="true">
+      <slot />
+    </div>
+  </Teleport>
+</template>
+```
+
+### Teleport 检查点
+
+- [ ] Teleport 目标元素是否存在且可控？（避免注入到不可信的 DOM）
+- [ ] Teleported 内容的样式是否导致全局样式污染？
+- [ ] Teleported 的焦点管理是否正确？（模态框的焦点陷阱）
+- [ ] CSP 配置是否允许 Teleport 的目标操作？
+- [ ] Teleported 内容的 Event 冒泡是否符合预期？（事件仍按组件树传播）
+
+---
+
+## Nuxt.js 特定检查
+
+### 服务端渲染安全
+
+- **`useFetch`/`useAsyncData` 中的密钥**：服务端执行的代码中使用的环境变量不会到客户端，但返回的 data 会
+- **`server/` 目录的认证**：API routes 需要独立认证，不依赖前端路由守卫
+- **`nuxt.config` 中的敏感配置**：`runtimeConfig.public` 中的所有值会暴露到客户端
+
+```typescript
+// nuxt.config.ts — 正确分离公私配置
+export default defineNuxtConfig({
+  runtimeConfig: {
+    // 仅服务端可访问
+    apiSecret: process.env.API_SECRET,
+    // 公开给客户端
+    public: {
+      apiBase: process.env.API_BASE_URL  // 可公开的 URL
+    }
+  }
+})
+```
+
+### Nuxt 模块安全
+
+- [ ] 第三方 Nuxt 模块是否有足够的社区信任度和维护活跃度？
+- [ ] 模块是否请求了过多权限（如修改路由、注入全局中间件）？
+- [ ] 自定义模块中是否有 XSS 注入点（如 `addPlugin` 注入的代码）？
+
+### 渲染模式
+
+- [ ] `ssr: false` 的页面是否正确处理了客户端激活期间的 hydration 不匹配？
+- [ ] 混合渲染（SSR + CSR + Static）的页面边界是否清晰？
+- [ ] `useCookie` 的敏感数据是否设置了 `httpOnly` 和 `secure`？
