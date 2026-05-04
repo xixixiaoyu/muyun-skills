@@ -114,7 +114,19 @@ function UserDashboard({ userId }: { userId: string }) {
 
 ```typescript
 // 修复 Props 钻取 >3 层：使用 Context 或组合
-// 修复后：使用 Context 直接注入
+// 之前：A → B → C → D 层层传递，中间组件不关心但被迫接收
+function A() {
+  const [theme, setTheme] = useState('light')
+  return <B theme={theme} onThemeChange={setTheme} />
+}
+function B({ theme, onThemeChange }) {
+  return <C theme={theme} onThemeChange={onThemeChange} />
+}
+function C({ theme, onThemeChange }) {
+  return <D theme={theme} onThemeChange={onThemeChange} />
+}
+
+// 修复后：使用 Context 直接注入，跳过中间层
 const ThemeContext = createContext<ThemeValue>({ theme: 'light', setTheme: () => {} })
 function A() {
   const [theme, setTheme] = useState('light')

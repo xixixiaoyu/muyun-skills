@@ -19,8 +19,15 @@
 | Teleport 含 v-html | P0 | Teleport 安全 |
 | Nuxt public runtimeConfig 暴露密钥 | P0 | Nuxt.js 特定检查 |
 | useCookie 敏感数据无 httpOnly | P1 | Nuxt.js 特定检查 |
-
----
+| defineProps/defineEmits 无类型声明 | P3 | 代码质量 → Props/Emits 定义 |
+| 直接修改 defineModel 返回值 | P2 | defineModel |
+| 直接修改 props | P1 | 常见反模式 |
+| watch 中修改被监听值 | P1 | 常见反模式 |
+| provide/inject 过度使用 | P2 | 常见反模式 |
+| $refs 直接操作 DOM | P2 | 常见反模式 |
+| 异步请求未用 AbortController | P1 | 竞态条件 |
+| Teleport 未受控 DOM 目标 | P2 | Teleport 安全 |
+| 非异步 setup 组件使用 Suspense | P3 | Suspense |
 
 ---
 

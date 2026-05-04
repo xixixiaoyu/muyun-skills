@@ -19,8 +19,15 @@
 | 异步组件无 Suspense | P2 | Suspense 数据获取 |
 | Suspense 无 ErrorBoundary | P2 | 错误边界 |
 | 昂贵计算阻塞 UI | P2 | React 18+ 并发特性 |
-
----
+| Hook 在条件/循环中调用 | P1 | Hooks 最佳实践 → Hooks 规则 |
+| 能用事件处理器却用了 useEffect | P2 | 常见反模式 |
+| 派生状态（state 可从 props 计算） | P3 | 常见反模式 |
+| 多个独立 useEffect 隐式依赖序 | P2 | 竞态条件 |
+| Context value 高频变化重渲染 | P2 | 常见反模式 |
+| RSC props 传递不可序列化对象 | P1 | React Server Components |
+| Next.js middleware 使用 Node.js API | P1 | RSC → Next.js 特定检查 |
+| ISR revalidate 配置不当 | P2 | RSC → Next.js 特定检查 |
+| 多个独立数据源用单个 Suspense | P2 | Suspense 数据获取 |
 
 ---
 
