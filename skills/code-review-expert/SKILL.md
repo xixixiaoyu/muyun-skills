@@ -1,6 +1,6 @@
 ---
 name: code-review-expert
-description: "Expert code review on git changes with auto-fix capability. Frontend-focused (React & Vue). Detects SOLID violations, security risks (XSS, injection, race conditions), performance, error handling, a11y, i18n and testing issues. Automatically fixes all detected problems with safe, minimal edits. Includes code removal planning."
+description: "Expert code review on git changes with auto-fix capability. Detects all code issues across any language and framework — SOLID violations, security risks (XSS, injection, race conditions), performance, error handling, a11y, i18n, and testing issues. Automatically fixes all detected problems with safe, minimal edits. Includes code removal planning and dead code elimination."
 ---
 
 # 代码审查专家
@@ -45,7 +45,8 @@ description: "Expert code review on git changes with auto-fix capability. Fronte
 
 确定变更范围后，用 `git diff <range> --stat` 获取变更概览，`git diff <range>` 获取具体内容。
 
-- 识别技术栈：检查 `package.json` 依赖（react、vue 等）、文件扩展名（.tsx、.vue 等）、配置文件。
+- 识别技术栈：检查 `package.json`、`pom.xml`、`go.mod`、`Cargo.toml` 等依赖文件、文件扩展名、配置文件，判定语言和框架。
+- 根据识别出的技术栈，动态加载对应的框架检查清单（`frameworks/` 目录下匹配）。若无对应清单，使用通用检测规则。
 - 对于 monorepo 项目，检查 workspace 配置，确定变更影响的工作区范围。
 - 识别入口点、所有权边界和关键路径（认证、支付、数据写入、网络）。
 
@@ -56,14 +57,13 @@ description: "Expert code review on git changes with auto-fix capability. Fronte
 
 **加载策略**：根据技术栈和变更特征，按需加载参考文件：
 - 始终加载：`solid-checklist.md`、`security-checklist.md`、`code-quality-checklist.md`
-- React 项目 → 加载 `frameworks/react.md`
-- Vue 项目 → 加载 `frameworks/vue.md`
+- 根据项目技术栈，加载 `frameworks/` 下匹配的检查清单（如 `react.md`、`vue.md`、`go.md` 等）；无匹配时使用通用安全及质量规则
 - 发现死代码/废弃代码 → 加载 `removal-plan.md`
 
 ### 2) SOLID + 架构异味
 
-- 根据 `solid-checklist.md` 检测通用和前端特定的 SOLID 违规信号。
-- 根据项目技术栈，加载对应框架 checklist 检查框架特定异味。
+- 根据 `solid-checklist.md` 检测通用和语言特定的 SOLID 违规信号。
+- 根据项目技术栈，加载对应框架 checklist 检查特定异味。
 - 提出重构时，解释**为什么**能改善内聚/耦合，并概述最小化、安全的拆分方案。重构非平凡时，提出增量计划而非大规模重写。
 
 ### 3) 待移除代码 + 迭代计划
@@ -90,12 +90,12 @@ description: "Expert code review on git changes with auto-fix capability. Fronte
 
 - 根据 `code-quality-checklist.md` 逐项检测：
   - **错误处理**：吞掉异常、过宽 catch、缺失异步错误处理
-  - **性能**：N+1 查询、热路径重计算、缺失缓存、无界内存、组件卸载后未清理
+  - **性能**：N+1 查询、热路径重计算、缺失缓存、无界内存、资源未清理
   - **边界条件**：null/undefined 处理、空集合、数值边界、off-by-one
 - 根据项目技术栈，加载对应框架 checklist 中的代码质量和性能章节。
 
-**可选深度检查**（根据变更内容酌情启用）：
-- **测试质量**（含测试文件变更）：变更是否伴随测试、边界/异常路径覆盖、Mock 合理性、flaky test 模式。
+**深度检查**（始终启用，根据变更内容调整重点）：
+- **测试质量**：变更是否伴随测试、边界/异常路径覆盖、Mock 合理性、flaky test 模式。
 - **可访问性 a11y**（含 UI 组件变更）：ARIA 属性、语义化 HTML、键盘导航、屏幕阅读器、颜色对比度、焦点管理。
 - **国际化 i18n**（含用户可见文案变更）：硬编码文案、RTL 布局、日期/数字/货币格式化。
 
@@ -107,7 +107,7 @@ description: "Expert code review on git changes with auto-fix capability. Fronte
 ## 代码审查摘要
 
 **审查文件**：X 个文件，Y 行变更
-**技术栈**：[React / Vue / 通用]
+**技术栈**：[检测到的语言/框架]
 **总体评估**：[通过 / 需要修改 / 仅评论]
 **修复模式**：[自动修复 / 仅审查]
 
