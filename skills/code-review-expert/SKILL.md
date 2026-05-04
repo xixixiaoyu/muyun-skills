@@ -23,66 +23,59 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 ### 1) 预检上下文
 
 - 使用 `git status -sb`、`git diff --stat` 和 `git diff` 确定变更范围。
-- 识别技术栈：检查 `package.json` 依赖（react、vue 等）、文件扩展名（.tsx、.vue 等）、配置文件（vite.config.ts 等）。
-- 对于 monorepo 项目，检查 `pnpm-workspace.yaml`、`lerna.json`、`turbo.json`、`nx.json` 等配置，确定变更影响的工作区范围。
-- 如需要，使用 `grep_code` 或 `search_codebase` 工具查找相关模块、引用和契约。避免使用终端命令进行代码搜索。
+- 识别技术栈：检查 `package.json` 依赖（react、vue 等）、文件扩展名（.tsx、.vue 等）、配置文件。
+- 对于 monorepo 项目，检查 workspace 配置，确定变更影响的工作区范围。
 - 识别入口点、所有权边界和关键路径（认证、支付、数据写入、网络）。
 
 **边界情况：**
-
 - **无变更**：如果 `git diff` 为空，告知用户并询问是否审查暂存区变更或特定 commit 范围。
 - **大型 diff (>500 行)**：先按文件汇总，再按模块/功能区域分批审查。
 - **混合关注点**：按逻辑功能分组发现，而非仅按文件顺序。
 
+**加载策略**：根据技术栈和变更特征，按需加载参考文件：
+- 始终加载：`solid-checklist.md`、`security-checklist.md`、`code-quality-checklist.md`
+- React 项目 → 加载 `frameworks/react.md`
+- Vue 项目 → 加载 `frameworks/vue.md`
+- 发现死代码/废弃代码 → 加载 `removal-plan.md`
+
 ### 2) SOLID + 架构异味
 
-- 加载 `references/solid-checklist.md` 获取通用检测提示。
-- 根据步骤 1 识别的技术栈，加载对应的框架检查清单（`references/frameworks/react.md` 或 `vue.md`）获取框架特定检测提示。
-- 检查以下问题：
-  - **SRP（单一职责）**：模块承载不相关职责。
-  - **OCP（开闭原则）**：频繁修改以添加行为，而非通过扩展点。
-  - **LSP（里氏替换）**：子类破坏预期或需要类型检查。
-  - **ISP（接口隔离）**：宽接口包含未使用的方法。
-  - **DIP（依赖倒置）**：高层逻辑绑定低层实现。
-- 提出重构时，解释**为什么**能改善内聚/耦合，并概述最小化、安全的拆分方案。
-- 如重构非平凡，提出增量计划而非大规模重写。
+- 根据 `solid-checklist.md` 检测通用和前端特定的 SOLID 违规信号。
+- 根据项目技术栈，加载对应框架 checklist 检查框架特定异味。
+- 提出重构时，解释**为什么**能改善内聚/耦合，并概述最小化、安全的拆分方案。重构非平凡时，提出增量计划而非大规模重写。
 
 ### 3) 待移除代码 + 迭代计划
 
-- 加载 `references/removal-plan.md` 获取模板。
-- 识别未使用、冗余或已关闭 Feature Flag 的代码。
+- 扫描 diff 中是否有死代码、已关闭 Feature Flag、废弃 API、冗余实现。
+- 如发现上述模式，加载 `removal-plan.md` 获取输出模板。
 - 区分 **立即安全删除** vs **延迟并制定计划**。
 - 提供包含具体步骤和检查点（测试/指标）的跟进计划。
 
 ### 4) 安全与可靠性扫描
 
-- 加载 `references/security-checklist.md` 获取通用安全检测覆盖。
-- 根据步骤 1 识别的技术栈，加载对应框架检查清单中的安全检查章节。
-- 检查以下问题：
+- 根据 `security-checklist.md` 逐项检测，重点关注：
   - XSS、注入（SQL/NoSQL/命令）、SSRF、路径遍历
   - CSRF、开放重定向
   - AuthZ/AuthN 缺口、缺失租户检查
-  - 日志/环境/文件中的密钥泄露或 API Key
-  - 速率限制、无界循环、CPU/内存热点
-  - 不安全的反序列化、弱加密、不安全默认值
-  - **竞态条件**：并发访问、先检查后执行、TOCTOU、缺失锁
-- 同时指出**可利用性**和**影响**。
+  - 密钥泄露（代码/日志/环境变量/Git）
+  - 竞态条件：TOCTOU、并发修改、请求竞态、缺失锁
+  - 原型污染、ReDoS、JWT 算法混淆
+  - 加密弱算法、硬编码 IV/盐值
+- 根据项目技术栈，加载对应框架 checklist 中的安全检查章节。
+- 每个发现需指出**可利用性**和**影响**。
 
 ### 5) 代码质量扫描
 
-- 加载 `references/code-quality-checklist.md` 获取通用质量检测覆盖。
-- 根据步骤 1 识别的技术栈，加载对应框架检查清单中的代码质量和性能章节。
-- 检查以下问题：
-  - **错误处理**：吞掉异常、过宽 catch、缺失错误处理、异步错误
-  - **性能**：N+1 查询、热路径 CPU 密集操作、缺失缓存、无界内存
+- 根据 `code-quality-checklist.md` 逐项检测：
+  - **错误处理**：吞掉异常、过宽 catch、缺失异步错误处理
+  - **性能**：N+1 查询、热路径重计算、缺失缓存、无界内存、组件卸载后未清理
   - **边界条件**：null/undefined 处理、空集合、数值边界、off-by-one
-- 标记可能导致静默失败或生产事故的问题。
+- 根据项目技术栈，加载对应框架 checklist 中的代码质量和性能章节。
 
-#### 可选深度检查（根据项目特征酌情启用）
-
-- **测试质量**（如项目含测试文件）：变更是否伴随测试、测试是否覆盖边界条件和异常路径、Mock 是否合理、是否存在 flaky test 模式。
-- **可访问性 a11y**（含 UI 组件变更）：ARIA 属性缺失或误用、语义化 HTML 标签、键盘导航支持、屏幕阅读器兼容性、颜色对比度、焦点管理。
-- **国际化 i18n**（含用户可见文案变更）：硬编码文案未使用 i18n 函数、RTL 布局适配、日期/数字/货币格式化未使用 `Intl` 或 locale 感知 API。
+**可选深度检查**（根据变更内容酌情启用）：
+- **测试质量**（含测试文件变更）：变更是否伴随测试、边界/异常路径覆盖、Mock 合理性、flaky test 模式。
+- **可访问性 a11y**（含 UI 组件变更）：ARIA 属性、语义化 HTML、键盘导航、屏幕阅读器、颜色对比度、焦点管理。
+- **国际化 i18n**（含用户可见文案变更）：硬编码文案、RTL 布局、日期/数字/货币格式化。
 
 ### 6) 输出格式
 
@@ -130,14 +123,6 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 > 问题描述和建议修复。
 ```
 
-**增强格式**（如平台支持富文本注释）：
-
-```
-::code-comment{file="path/to/file.ts" line="42" severity="P1"}
-问题描述和建议修复。
-::
-```
-
 **格式选择**：默认使用 Markdown 引用格式。仅在平台明确支持代码评论（如 GitLab MR、Gitee PR）时使用 `::code-comment` 增强格式，避免混用。
 
 **干净审查**：如未发现问题，必须逐项确认以下核心维度已检查：
@@ -148,10 +133,7 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 4. **竞态条件** - 无请求竞态、无过期状态更新
 5. **敏感数据** - 无密钥/Token 泄露到客户端或日志
 
-确认后补充说明：
-- 检查了什么
-- 未覆盖的区域（如"未验证数据库迁移"）
-- 残留风险或建议的后续测试
+确认后补充说明：检查了什么、未覆盖的区域（如"未验证数据库迁移"）、残留风险或建议的后续测试。
 
 ### 7) 下一步确认
 
@@ -180,18 +162,16 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 
 ### references/
 
-| 文件 | 用途 |
-|------|------|
-| `solid-checklist.md` | SOLID 异味提示和重构启发式 |
-| `security-checklist.md` | Web/应用安全和运行时风险清单 |
-| `code-quality-checklist.md` | 错误处理、性能、边界条件、类型安全、测试质量、a11y、i18n |
-| `removal-plan.md` | 删除候选和跟进计划模板 |
+| 文件 | 用途 | 加载条件 |
+|------|------|----------|
+| `solid-checklist.md` | SOLID 异味和架构检测信号 | 始终 |
+| `security-checklist.md` | 安全、竞态、数据完整性检测信号 | 始终 |
+| `code-quality-checklist.md` | 错误处理、性能、边界、类型、a11y、i18n 检测信号 | 始终 |
+| `removal-plan.md` | 死代码删除模板和验证清单 | 发现死代码时 |
 
 ### references/frameworks/
 
-根据项目技术栈，按需加载对应的框架特定检查清单：
-
-| 文件 | 用途 |
-|------|------|
-| `react.md` | React 特定：Hooks、re-render、useEffect、RSC、Next.js、Suspense、并发特性 |
-| `vue.md` | Vue 特定：响应式、Composition API、Suspense、defineModel、Teleport、Nuxt.js |
+| 文件 | 用途 | 加载条件 |
+|------|------|----------|
+| `react.md` | React 特定陷阱：Hooks、RSC、Next.js、Suspense、并发 | React 项目 |
+| `vue.md` | Vue 特定陷阱：响应式、Composition API、Suspense、Nuxt | Vue 项目 |
