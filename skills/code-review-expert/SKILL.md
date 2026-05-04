@@ -7,7 +7,7 @@ description: "Expert code review on git changes with auto-fix capability. Fronte
 
 ## 概述
 
-对当前 git 变更执行结构化审查并自动修复所有发现的问题。聚焦 SOLID 原则、架构设计、待移除代码和安全风险。目前以前端项目为主（React、Vue），后端代码审查能力有限。
+对当前 git 变更执行结构化审查并自动修复所有发现的问题。聚焦 SOLID 原则、架构设计、待移除代码和安全风险。
 
 **核心能力**：发现 → 分析 → 自动修复，三步闭环。审查完成后自动实施所有修复，无需用户逐一确认。复杂/架构级问题会给出详细修复方案。
 
