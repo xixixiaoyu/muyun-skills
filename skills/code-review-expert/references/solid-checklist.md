@@ -48,3 +48,124 @@
 - 按职责拆分，非按文件大小
 - 先隔离行为再移动（增量重构）
 - 用类型系统使非法状态不可表示
+
+---
+
+## 重构修复模式
+
+自动修复时套用以下标准化重构模式。
+
+### 组件拆分（SRP）
+
+```typescript
+// 修复巨型组件：分离容器/展示组件 + 自定义 Hook
+// 之前：单文件 500+ 行混合 UI/逻辑/数据
+function UserDashboard({ userId }) {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    fetchUser(userId, { signal: controller.signal })
+      .then(setUser)
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(err)
+      })
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+  }, [userId])
+  // ... 大量 JSX + 其他逻辑
+}
+
+// 修复后：提取数据逻辑到 Hook
+// hooks/useUser.ts
+function useUser(userId: string) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    fetchUser(userId, { signal: controller.signal })
+      .then(setUser)
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(err)
+      })
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+  }, [userId])
+
+  return { user, loading, error }
+}
+
+// UserDashboard.tsx — 纯展示
+function UserDashboard({ userId }: { userId: string }) {
+  const { user, loading, error } = useUser(userId)
+  if (loading) return <Skeleton />
+  if (error) return <ErrorDisplay error={error} />
+  return <UserProfile user={user} />
+}
+```
+
+### Props 钻取修复（ISP）
+
+```typescript
+// 修复 Props 钻取 >3 层：使用 Context 或组合
+// 修复后：使用 Context 直接注入
+const ThemeContext = createContext<ThemeValue>({ theme: 'light', setTheme: () => {} })
+function A() {
+  const [theme, setTheme] = useState('light')
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      <B />
+    </ThemeContext.Provider>
+  )
+}
+function D() {
+  const { theme, setTheme } = useContext(ThemeContext)
+  // 直接使用，无需中间层传递
+}
+```
+
+### 依赖倒置修复（DIP）
+
+```typescript
+// 修复直接依赖具体实现：引入 Service 抽象层
+// 之前：组件直接调用 fetch
+// 修复后：
+// services/productService.ts
+export const productService = {
+  async list(): Promise<Product[]> {
+    const res = await fetch('/api/products')
+    if (!res.ok) throw new Error('Failed to fetch products')
+    return res.json()
+  }
+}
+```
+
+### 魔法数字/字符串修复
+
+```typescript
+// 修复硬编码值：提取为命名常量
+// 之前：if (user.age > 18 && status === 'active') { ... }
+// 修复后：
+const MIN_ADULT_AGE = 18
+const ACTIVE_STATUS = 'active' as const
+if (user.age > MIN_ADULT_AGE && status === ACTIVE_STATUS) { ... }
+```
+
+### 重复代码消除
+
+```typescript
+// 修复霰弹式修改：提取公共逻辑
+// 修复后：
+// utils/validators.ts
+export const validators = {
+  email: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+  required: (v: unknown) => v !== null && v !== undefined && v !== '',
+}
+// 各处导入使用，单一变更点
+```

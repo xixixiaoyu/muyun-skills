@@ -2,6 +2,26 @@
 
 本清单覆盖 Vue 2/3 应用的安全、性能和代码质量问题。
 
+## 快速索引（Auto-Fix 模板定位）
+
+| 问题类型 | 级别 | 参考章节 |
+|---------|------|---------|
+| v-html 无 DOMPurify | P0 | 安全检查 → XSS 风险 |
+| :href 绑定用户可控 URL | P1 | 安全检查 → XSS 风险 |
+| watch 异步无 onWatcherCleanup | P1 | 竞态条件 → 异步请求竞态 |
+| 多个 watch 循环依赖 | P1 | 竞态条件 → watch vs watchEffect |
+| reactive 包裹巨型对象 | P2 | 性能 → 响应式系统 |
+| 模板复杂计算未用 computed | P2 | 性能 → 响应式系统 |
+| v-if 和 v-for 同级 | P1 | 性能 → 组件渲染优化 |
+| v-for 无 key 或用 index | P2 | 性能 → 组件渲染优化 |
+| 过长 script setup 未提取 composable | P2 | 代码质量 → Composition API |
+| Vue 2 新增属性不响应 | P1 | Vue 2 特定问题 → 响应式陷阱 |
+| Teleport 含 v-html | P0 | Teleport 安全 |
+| Nuxt public runtimeConfig 暴露密钥 | P0 | Nuxt.js 特定检查 |
+| useCookie 敏感数据无 httpOnly | P1 | Nuxt.js 特定检查 |
+
+---
+
 ---
 
 ## 安全检查

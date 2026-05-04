@@ -2,6 +2,26 @@
 
 本清单覆盖 React 应用的安全、性能和代码质量问题。
 
+## 快速索引（Auto-Fix 模板定位）
+
+| 问题类型 | 级别 | 参考章节 |
+|---------|------|---------|
+| dangerouslySetInnerHTML 无过滤 | P0 | 安全检查 → XSS 风险 |
+| 用户输入作为 URL | P1 | 安全检查 → XSS 风险 |
+| useEffect 异步无 cleanup | P1 | 竞态条件 → useEffect 异步竞态 |
+| setState 非函数式更新 | P1 | 竞态条件 → 状态更新竞态 |
+| 每次渲染创建新对象/函数 | P2 | 性能 → 不必要的重渲染 |
+| useEffect 依赖缺失/过多 | P1 | 性能 → useEffect 依赖 |
+| 列表无 key 或用 index | P2 | 性能 → 列表渲染优化 |
+| 组件内混合关注点 | P2 | Hooks 最佳实践 → 自定义 Hook 提取 |
+| RSC 中使用 Hooks/事件 | P1 | React Server Components |
+| 敏感数据返回客户端 | P0 | RSC → 敏感数据泄露 |
+| 异步组件无 Suspense | P2 | Suspense 数据获取 |
+| Suspense 无 ErrorBoundary | P2 | 错误边界 |
+| 昂贵计算阻塞 UI | P2 | React 18+ 并发特性 |
+
+---
+
 ---
 
 ## 安全检查

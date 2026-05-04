@@ -53,3 +53,115 @@
 - 手写日期/数字格式而非 `Intl` 或 locale 感知库 → **P2**
 - 拼接翻译 key 如 `t('error.' + code)` → **P2**
 - UI 没有为文本膨胀留空间（英文比中文长 30-50%）→ **P3**
+
+---
+
+## Auto-Fix 模板
+
+以下标准修复模式在自动修复时直接套用，结合具体代码上下文调整。
+
+### 错误处理修复
+
+```typescript
+// 修复空 catch：至少记录错误并重新抛出或降级处理
+try {
+  await riskyOperation()
+} catch (error) {
+  // 修复：记录错误上下文，避免静默失败
+  console.error('[module] operation failed:', error)
+  // 根据场景选择：throw error（上层处理）或返回 fallback 值
+  return fallbackValue
+}
+
+// 修复缺失异步错误处理：为 Promise 添加 .catch()
+fetchData(id)
+  .then(setData)
+  .catch((err) => {
+    // 修复：处理异步错误
+    console.error('[fetchData] failed for id:', id, err)
+    setError(err.message)
+  })
+
+// 修复过宽 catch：区分错误类型
+try {
+  await apiCall()
+} catch (error) {
+  if (error instanceof ValidationError) {
+    // 修复：具体类型处理
+    handleValidationError(error)
+  } else if (error instanceof NetworkError) {
+    handleNetworkError(error)
+  } else {
+    throw error // 未知错误向上抛出
+  }
+}
+```
+
+### 性能修复
+
+```typescript
+// 修复 N+1 查询：使用批量查询
+// 之前：for (const id of ids) { await db.find(id) }
+// 修复后：
+const results = await db.findMany({ where: { id: { in: ids } } })
+
+// 修复串行 await：并行独立请求
+const [users, posts, settings] = await Promise.all([
+  fetchUsers(),
+  fetchPosts(),
+  fetchSettings(),
+])
+
+// 修复内存泄漏：组件卸载时清理
+useEffect(() => {
+  const timer = setInterval(() => tick(), 1000)
+  const controller = new AbortController()
+  fetchData({ signal: controller.signal })
+  // 修复：返回 cleanup 函数
+  return () => {
+    clearInterval(timer)
+    controller.abort()
+  }
+}, [])
+```
+
+### 边界条件修复
+
+```typescript
+// 修复不安全属性访问：可选链 + 默认值
+// 之前：const name = user.profile.name
+// 修复后：
+const name = user?.profile?.name ?? 'Unknown'
+
+// 修复除零：添加守卫
+const average = items.length > 0 ? total / items.length : 0
+
+// 修复数组越界：索引前校验
+function getItem(arr: Item[], index: number): Item | undefined {
+  if (index < 0 || index >= arr.length) return undefined
+  return arr[index]
+}
+
+// 修复浮点金额：使用整数（分）或 decimal 库
+// 之前：const total = price * quantity
+// 修复后：
+const totalCents = Math.round(priceCents * quantity) // 整数运算
+```
+
+### 类型安全修复（TS 项目）
+
+```typescript
+// 修复 as any：使用具体类型或 unknown + 类型守卫
+// 之前：const data = response as any
+// 修复后：
+interface ApiResponse { id: number; name: string }
+function isApiResponse(obj: unknown): obj is ApiResponse {
+  return typeof obj === 'object' && obj !== null && 'id' in obj && 'name' in obj
+}
+if (!isApiResponse(data)) throw new Error('Invalid response')
+
+// 修复 { [key: string]: any } 用 Record 替代
+// 之前：const config: { [key: string]: any } = {}
+// 修复后：
+const config: Record<string, unknown> = {}
+```

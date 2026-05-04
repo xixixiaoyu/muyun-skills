@@ -76,3 +76,140 @@
 - 部分写入无事务保护 → **P1**
 - 可重试操作缺少幂等性 → **P1**
 - 并发修改导致更新丢失 → **P1**
+
+---
+
+## Auto-Fix 模板
+
+以下标准修复模式在自动修复时直接套用。
+
+### XSS / 注入修复
+
+```typescript
+// 修复 dangerouslySetInnerHTML / innerHTML：使用 DOMPurify
+import DOMPurify from 'dompurify'
+// 之前：<div dangerouslySetInnerHTML={{ __html: userInput }} />
+// 修复后：
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userInput) }} />
+
+// 修复 v-html：使用 DOMPurify + computed
+// 之前：<div v-html="userInput"></div>
+// 修复后：<div v-html="sanitizedHtml"></div>
+// script: const sanitizedHtml = computed(() => DOMPurify.sanitize(userInput.value))
+
+// 修复 URL 注入：白名单校验
+// 之前：window.location.href = userInput
+// 修复后：
+const ALLOWED_REDIRECTS = ['/dashboard', '/profile', '/settings']
+const safeUrl = ALLOWED_REDIRECTS.includes(userInput) ? userInput : '/'
+window.location.href = safeUrl
+
+// 修复 :href 绑定用户输入：验证协议
+// 之前：<a :href="userLink">
+// 修复后：
+const safeHref = computed(() => {
+  if (!userLink.value) return '#'
+  return /^https?:\/\//.test(userLink.value) ? userLink.value : '#'
+})
+```
+
+### 认证/授权修复
+
+```typescript
+// 修复缺失认证守卫：添加中间件
+// 之前：export default function handler(req, res) { ... }
+// 修复后：
+export default async function handler(req, res) {
+  const session = await getSession(req)
+  if (!session) return res.status(401).json({ error: 'Unauthorized' })
+  // ... 原有逻辑
+}
+
+// 修复 IDOR：添加租户/所有权检查
+// 之前：const item = await db.find({ id: req.params.id })
+// 修复后：
+const item = await db.find({ id: req.params.id, tenantId: session.tenantId })
+if (!item) return res.status(404).json({ error: 'Not found' })
+```
+
+### 竞态条件修复
+
+```typescript
+// 修复请求竞态（React）：使用 AbortController
+useEffect(() => {
+  const controller = new AbortController()
+  async function load() {
+    try {
+      const data = await fetchUser(id, { signal: controller.signal })
+      setUser(data)
+    } catch (err) {
+      if (err.name !== 'AbortError') setError(err)
+    }
+  }
+  load()
+  return () => controller.abort()
+}, [id])
+
+// 修复请求竞态（Vue）：使用 onWatcherCleanup
+watch(source, async (newVal) => {
+  const controller = new AbortController()
+  onWatcherCleanup(() => controller.abort())
+  const data = await fetchData(newVal, { signal: controller.signal })
+  result.value = data
+})
+
+// 修复数据库竞态：乐观锁
+// 之前：await db.update({ id, data })
+// 修复后：
+const result = await db.update({
+  where: { id, version: currentVersion },
+  data: { ...data, version: currentVersion + 1 },
+})
+if (result.count === 0) throw new ConflictError('数据已被修改')
+
+// 修复原子计数器：使用数据库原子操作
+// 之前：const count = await db.get(); await db.set(count + 1)
+// 修复后：
+await db.increment({ where: { id }, data: { count: 1 } })
+```
+
+### 密钥泄露修复
+
+```typescript
+// 修复硬编码密钥：使用环境变量
+// 之前：const API_KEY = 'sk-abc123xyz'
+// 修复后：
+const API_KEY = process.env.API_KEY
+if (!API_KEY) throw new Error('API_KEY environment variable is required')
+
+// 修复日志泄露敏感数据：过滤后再记录
+function safeLog(data: Record<string, unknown>) {
+  const { password, token, secret, ...safe } = data
+  console.log(safe)
+}
+```
+
+### JWT 修复
+
+```typescript
+// 修复算法混淆：指定算法白名单
+import jwt from 'jsonwebtoken'
+// 之前：jwt.verify(token, secret)
+// 修复后：
+jwt.verify(token, secret, { algorithms: ['RS256'] })
+
+// 修复 payload 含敏感数据：只存最小必要信息
+// 之前：{ userId, email, password, ssn, ... }
+// 修复后：{ sub: userId, role: user.role }
+```
+
+### ReDoS 修复
+
+```typescript
+// 修复危险正则：消除嵌套量词 + 限制输入长度
+// 之前：/^(a+)+$/.test(userInput)
+// 修复后：
+const MAX_INPUT = 1000
+if (userInput.length > MAX_INPUT) return false
+/^a+$/.test(userInput) // 简化正则，消除嵌套量词
+```

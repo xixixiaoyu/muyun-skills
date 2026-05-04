@@ -1,24 +1,34 @@
 ---
 name: code-review-expert
-description: "Expert code review on git changes. Frontend-focused (React & Vue). Detects SOLID violations, security risks (XSS, injection, race conditions), performance, error handling, a11y, i18n and testing issues. Includes code removal planning."
+description: "Expert code review on git changes with auto-fix capability. Frontend-focused (React & Vue). Detects SOLID violations, security risks (XSS, injection, race conditions), performance, error handling, a11y, i18n and testing issues. Automatically fixes all detected problems with safe, minimal edits. Includes code removal planning."
 ---
 
 # 代码审查专家
 
 ## 概述
 
-对当前 git 变更执行结构化审查，聚焦 SOLID 原则、架构设计、待移除代码和安全风险。目前以前端项目为主（React、Vue），后端代码审查能力有限。默认仅输出审查结果，除非用户明确要求实施修改。
+对当前 git 变更执行结构化审查并自动修复所有发现的问题。聚焦 SOLID 原则、架构设计、待移除代码和安全风险。目前以前端项目为主（React、Vue），后端代码审查能力有限。
+
+**核心能力**：发现 → 分析 → 自动修复，三步闭环。审查完成后自动实施所有修复，无需用户逐一确认。复杂/架构级问题会给出详细修复方案。
+
+## 工作模式
+
+| 模式 | 触发方式 | 行为 |
+|------|----------|------|
+| **审查+修复（默认）** | 用户直接请求审查 | 审查完成后自动修复所有发现问题 |
+| **仅审查** | 用户明确说"只审查不修复" | 仅输出发现清单，询问后再决定 |
+| **仅修复特定项** | 用户指定问题编号 | 只修复指定问题 |
 
 ## 严重级别
 
-| 级别 | 名称 | 描述 | 行动 |
-|------|------|------|------|
-| **P0** | 严重 | 安全漏洞、数据丢失风险、正确性 Bug | 必须阻止合并 |
-| **P1** | 高危 | 逻辑错误、严重 SOLID 违规、性能回退 | 合并前应修复 |
-| **P2** | 中等 | 代码异味、可维护性问题、轻微 SOLID 违规 | 本 PR 修复或创建跟进任务 |
-| **P3** | 低危 | 风格、命名、小建议 | 可选改进 |
+| 级别 | 名称 | 描述 | 修复策略 |
+|------|------|------|----------|
+| **P0** | 严重 | 安全漏洞、数据丢失风险、正确性 Bug | 立即自动修复，阻止合并 |
+| **P1** | 高危 | 逻辑错误、严重 SOLID 违规、性能回退 | 立即自动修复，合并前必须修复 |
+| **P2** | 中等 | 代码异味、可维护性问题、轻微 SOLID 违规 | 自动修复，复杂情况给出方案 |
+| **P3** | 低危 | 风格、命名、小建议 | 自动修复或标注建议 |
 
-## 工作流
+## 审查工作流
 
 ### 1) 预检上下文
 
@@ -77,7 +87,7 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 - **可访问性 a11y**（含 UI 组件变更）：ARIA 属性、语义化 HTML、键盘导航、屏幕阅读器、颜色对比度、焦点管理。
 - **国际化 i18n**（含用户可见文案变更）：硬编码文案、RTL 布局、日期/数字/货币格式化。
 
-### 6) 输出格式
+### 6) 输出审查结果
 
 按以下结构组织审查结果：
 
@@ -87,18 +97,20 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 **审查文件**：X 个文件，Y 行变更
 **技术栈**：[React / Vue / 通用]
 **总体评估**：[通过 / 需要修改 / 仅评论]
+**修复模式**：[自动修复 / 仅审查]
 
 ---
 
 ## 发现
 
 ### P0 - 严重
-（无或列出）
+（无或列出。每条标注：问题描述、修复状态 ✓已修复 / →待修复 / ⚠需手动）
 
 ### P1 - 高危
 1. **[文件:行号]** 简要标题
   - 问题描述
-  - 建议修复
+  - 修复方案
+  - 修复状态
 
 ### P2 - 中等
 2.（跨分区连续编号）
@@ -108,6 +120,12 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 ...
 
 ---
+
+## 修复摘要
+（自动修复模式下必需）
+| 文件 | 修复数 | 变更说明 |
+|------|--------|----------|
+| path/to/file | N | 修复了 XSS 风险、空值检查... |
 
 ## 移除/迭代计划
 （如适用）
@@ -135,28 +153,65 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 
 确认后补充说明：检查了什么、未覆盖的区域（如"未验证数据库迁移"）、残留风险或建议的后续测试。
 
-### 7) 下一步确认
+### 7) 自动修复
 
-展示发现后，询问用户如何继续：
+审查输出后，**默认进入自动修复阶段**（除非用户指定仅审查模式）。
+
+#### 修复原则
+
+1. **安全第一**：修复不应引入新问题。先读取文件理解完整上下文，再做最小化变更。
+2. **按文件分组**：同一文件的所有修复合并为一次编辑操作，减少文件抖动。
+3. **从轻到重**：先修复 P3/P2（低风险、局部变更），再修复 P1，最后修复 P0（可能涉及安全架构调整）。
+4. **保留意图**：修复代码逻辑问题，不改变业务意图和功能行为。
+5. **可追溯**：每次修复附带注释说明原因（如 `// 修复：添加空值检查防止 NPE`）。
+6. **可回滚**：每次修复是独立、可逆的操作，不产生连锁依赖。
+
+#### 修复实施步骤
+
+对每个发现执行以下闭环操作：
+
+1. **读取上下文**：使用 `read_file` 读取目标文件及相关依赖，理解完整调用链。
+2. **匹配修复模板**：根据问题类型，从对应 checklist 中查找标准修复模式（如 XSS → DOMPurify、竞态 → AbortController）。
+3. **实施修复**：使用 `search_replace` 进行精确编辑，确保 `original_text` 唯一匹配。
+4. **自检验证**：确认修改后的代码语法正确、类型一致、逻辑完整。
+
+#### 不可自动修复的场景
+
+以下情况标注为 ⚠需手动修复，给出详细方案但不由 agent 自动执行：
+
+- 需要跨多个仓库/服务协调的架构变更
+- 涉及数据库迁移或数据回填的修改
+- 需要产品/设计确认的 UI/UX 行为变更
+- 存在多种等价实现方式、需团队讨论的选择性优化
+- 需要新增依赖包的安全修复（如引入 DOMPurify）
+
+#### 修复后输出
 
 ```markdown
----
+## 修复完成
 
-## 下一步
+**修复统计**：共修复 X 个问题（P0: _，P1: _，P2: _，P3: _），需手动处理 Y 个
 
-我发现了 X 个问题（P0: _，P1: _，P2: _，P3: _）。
+### 已修复
+| # | 级别 | 文件 | 修复内容 |
+|---|------|------|----------|
+| 1 | P0 | file.ts:42 | 添加 DOMPurify 过滤 XSS |
+| 2 | P1 | comp.tsx:15 | useEffect 添加 cleanup |
 
-**您希望如何继续？**
+### 需手动处理
+| # | 级别 | 文件 | 原因 | 建议方案 |
+|---|------|------|------|----------|
+| 1 | P2 | store.ts:88 | 需架构讨论 | 拆分 Context... |
 
-1. **全部修复** - 我将实施所有建议的修复
-2. **仅修复 P0/P1** - 处理严重和高危问题
-3. **修复特定项** - 告诉我要修复哪些问题
-4. **不做修改** - 审查完成，无需实施
-
-请选择一个选项或提供具体指示。
+### 可选建议
+（已自动应用的 P3 改进列表）
 ```
 
-**重要**：在用户明确确认前，不要实施任何修改。这是审查优先的工作流。
+**自检清单**（修复完成后须逐项确认）：
+- [ ] 所有修复的文件语法正确、无新增 linter 错误
+- [ ] 修复未改变原有业务逻辑行为
+- [ ] 同一文件的多次修复无冲突
+- [ ] 需手动处理的问题已给出清晰可执行的方案
 
 ## 资源
 
@@ -164,14 +219,14 @@ description: "Expert code review on git changes. Frontend-focused (React & Vue).
 
 | 文件 | 用途 | 加载条件 |
 |------|------|----------|
-| `solid-checklist.md` | SOLID 异味和架构检测信号 | 始终 |
-| `security-checklist.md` | 安全、竞态、数据完整性检测信号 | 始终 |
-| `code-quality-checklist.md` | 错误处理、性能、边界、类型、a11y、i18n 检测信号 | 始终 |
-| `removal-plan.md` | 死代码删除模板和验证清单 | 发现死代码时 |
+| `solid-checklist.md` | SOLID 异味和架构检测信号 + 重构修复模式 | 始终 |
+| `security-checklist.md` | 安全、竞态、数据完整性检测信号 + 安全修复模板 | 始终 |
+| `code-quality-checklist.md` | 错误处理、性能、边界、类型、a11y、i18n 检测信号 + 修复模板 | 始终 |
+| `removal-plan.md` | 死代码删除模板和验证清单 + 自动删除步骤 | 发现死代码时 |
 
 ### references/frameworks/
 
 | 文件 | 用途 | 加载条件 |
 |------|------|----------|
-| `react.md` | React 特定陷阱：Hooks、RSC、Next.js、Suspense、并发 | React 项目 |
-| `vue.md` | Vue 特定陷阱：响应式、Composition API、Suspense、Nuxt | Vue 项目 |
+| `react.md` | React 特定陷阱：Hooks、RSC、Next.js、Suspense、并发 + 修复代码示例 | React 项目 |
+| `vue.md` | Vue 特定陷阱：响应式、Composition API、Suspense、Nuxt + 修复代码示例 | Vue 项目 |
