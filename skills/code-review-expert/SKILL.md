@@ -51,8 +51,10 @@ description: "Expert code review on git changes with auto-fix capability. Detect
 
 **加载策略**（按需加载参考文件）：
 - 始终加载：`solid-checklist.md`、`security-checklist.md`、`code-quality-checklist.md`
+- 后端项目额外加载：`backend-checklist.md`
 - 根据技术栈加载 `frameworks/` 下匹配的检查清单；无匹配时使用通用规则
 - 发现死代码/废弃代码 → 加载 `removal-plan.md`
+- 检测到 Dockerfile/CI 配置文件 → 加载 `infra-checklist.md`
 
 ### 2) SOLID + 架构异味
 
@@ -165,10 +167,12 @@ description: "Expert code review on git changes with auto-fix capability. Detect
 
 | 文件 | 用途 | 加载条件 |
 |------|------|----------|
-| `solid-checklist.md` | SOLID 异味和架构检测信号 | 始终 |
-| `security-checklist.md` | 安全、竞态、数据完整性检测信号 | 始终 |
+| `solid-checklist.md` | SOLID 异味和架构检测信号（前端 + 后端） | 始终 |
+| `security-checklist.md` | 安全、注入、竞态、数据完整性检测信号 | 始终 |
 | `code-quality-checklist.md` | 错误处理、性能、边界、类型、a11y、i18n 检测信号 | 始终 |
+| `backend-checklist.md` | 数据库、API 设计、日志、缓存基础设施检测信号 | 后端项目始终 |
 | `removal-plan.md` | 死代码删除模板和验证清单 | 发现死代码时 |
+| `infra-checklist.md` | Docker 安全和 CI/CD 流水线检测信号 | 检测到 Dockerfile/CI 配置时 |
 
 ### references/frameworks/
 
@@ -176,3 +180,7 @@ description: "Expert code review on git changes with auto-fix capability. Detect
 |------|------|----------|
 | `react.md` | React 特定检查点：Hooks、RSC、Next.js、Suspense、并发 | React 项目 |
 | `vue.md` | Vue 特定检查点：响应式、Composition API、Suspense、Nuxt | Vue 项目 |
+| `go.md` | Go 后端检查点：goroutine、channel、错误处理、context | Go 项目（检测 go.mod） |
+| `python.md` | Python 后端检查点：Django/Flask/FastAPI、asyncio、ORM | Python 项目（检测 requirements.txt/pyproject.toml） |
+| `nodejs.md` | Node.js 后端检查点：Express、中间件、Event Loop、Stream | Node.js 后端项目（检测 package.json + 后端框架依赖） |
+| `java.md` | Java 后端检查点：Spring Boot、JPA/Hibernate、线程安全、Lombok | Java 项目（检测 pom.xml/build.gradle） |

@@ -77,6 +77,55 @@
 - 可重试操作缺少幂等性 → **P1**
 - 并发修改导致更新丢失 → **P1**
 
+## SQL 注入
+- 字符串拼接/模板字面量/格式化构造 SQL → **P0**
+- ORM 原生查询/动态查询未使用参数绑定（如 JPA native query、Django raw、Go fmt.Sprintf）→ **P0**
+- 存储过程参数拼接用户输入 → **P0**
+- 动态表名/列名/ORDER BY/GROUP BY 未白名单校验 → **P1**
+- LIKE 查询用户输入未转义 `%` `_` 通配符 → **P2**
+
+## NoSQL 注入
+- MongoDB $where/`$expr` 使用用户输入 → **P0**
+- 聚合管道中直接插入用户输入 → **P0**
+- 用户输入被解析为查询操作符（如 `{ "$gt": "" }` 绕过权限）→ **P0**
+- Redis 命令拼接用户输入 → **P1**
+
+## 命令注入
+- exec/system/popen/subprocess/os.exec 等系统调用拼接用户输入 → **P0**
+- shell 元字符未过滤（`, $, |, &, ;, \n, \r`）→ **P0**
+- 动态命令名或参数来自用户输入 → **P0**
+
+## SSRF（服务端请求伪造）
+- 用户输入直接作为 HTTP 请求 URL → **P0**
+- URL 解析后未校验 IP 指向内网地址（127.0.0.1/10.0.0.0/8/172.16.0.0/12/192.168.0.0/16）→ **P0**
+- 未限制请求协议（允许 file:/// dict:/// gopher://）→ **P0**
+- 未防御 DNS 重绑定攻击（每次 DNS 解析后未重新校验 IP）→ **P1**
+
+## 反序列化安全
+- Java ObjectInputStream 反序列化不可信数据 → **P0**
+- Python pickle.loads/cPickle 反序列化不可信数据 → **P0**
+- PHP unserialize 反序列化不可信数据 → **P0**
+- JavaScript eval/Function 执行不可信字符串 → **P0**
+- YAML.load/YAML.full_load 替代 YAML.safe_load → **P1**
+
+## SSTI（服务端模板注入）
+- 用户输入拼入模板字符串或传入模板引擎渲染（Jinja2/EJS/Thymeleaf/FreeMarker/Pug）→ **P0**
+
+## XXE（XML 外部实体注入）
+- XML 解析器未禁用外部实体和 DTD 处理 → **P0**
+
+## Cookie 安全
+- 敏感 Cookie 缺失 Secure 标志（仅 HTTPS 传输）→ **P1**
+- 缺失 HttpOnly 标志（阻止 JavaScript 访问）→ **P1**
+- 缺失 SameSite 或设为 None 但无 Secure → **P1**
+- Cookie Domain 设置过宽（如 `.example.com` 影响所有子域）→ **P2**
+- 敏感 Cookie 未设置 `__Host-` 前缀（防子域攻击）→ **P2**
+
+## CORS 配置
+- `Access-Control-Allow-Origin` 设为 `*` 且同时允许携带凭证（Credentials）→ **P0**
+- 动态反射 Origin 请求头值未做白名单校验 → **P1**
+- `Access-Control-Allow-Methods` 设置为 `*` 或过于宽松 → **P2**
+
 ---
 
 ## 修复指引
