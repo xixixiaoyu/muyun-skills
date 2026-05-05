@@ -183,4 +183,5 @@ description: "Expert code review on git changes with auto-fix capability. Detect
 | `go.md` | Go 后端检查点：goroutine、channel、错误处理、context | Go 项目（检测 go.mod） |
 | `python.md` | Python 后端检查点：Django/Flask/FastAPI、asyncio、ORM | Python 项目（检测 requirements.txt/pyproject.toml） |
 | `nodejs.md` | Node.js 后端检查点：Express、中间件、Event Loop、Stream | Node.js 后端项目（检测 package.json + 后端框架依赖） |
+| `nestjs.md` | NestJS 检查点：模块架构、DI、Guard/Interceptor/Pipe、GraphQL、BullMQ | NestJS 项目（检测 @nestjs/core 依赖） |
 | `java.md` | Java 后端检查点：Spring Boot、JPA/Hibernate、线程安全、Lombok | Java 项目（检测 pom.xml/build.gradle） |
