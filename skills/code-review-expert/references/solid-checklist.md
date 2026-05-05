@@ -51,133 +51,15 @@
 
 ---
 
-## 重构修复模式
+## 修复指引
 
-自动修复时套用以下标准化重构模式。
+自动修复时套用以下标准化重构模式：
 
-### 组件拆分（SRP）
+- **组件拆分（SRP）**：巨型组件分离容器/展示组件，提取自定义 Hook/Composable 管理数据逻辑
+- **Props 钻取修复（ISP）**：超过 3 层传递用 Context 或组合模式直接注入，跳过中间层
+- **依赖倒置（DIP）**：组件不直接调用 fetch/存储 API，引入 Service 抽象层
+- **魔法数字/字符串**：提取为命名常量
+- **重复代码消除**：提取公共逻辑到独立模块，单一变更点
+- **巨型 Props/接口**：拆分 Context/Store 为多个小粒度提供者
 
-```typescript
-// 修复巨型组件：分离容器/展示组件 + 自定义 Hook
-// 之前：单文件 500+ 行混合 UI/逻辑/数据
-function UserDashboard({ userId }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    setLoading(true)
-    fetchUser(userId, { signal: controller.signal })
-      .then(setUser)
-      .catch((err) => {
-        if (err.name !== 'AbortError') setError(err)
-      })
-      .finally(() => setLoading(false))
-    return () => controller.abort()
-  }, [userId])
-  // ... 大量 JSX + 其他逻辑
-}
-
-// 修复后：提取数据逻辑到 Hook
-// hooks/useUser.ts
-function useUser(userId: string) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    setLoading(true)
-    fetchUser(userId, { signal: controller.signal })
-      .then(setUser)
-      .catch((err) => {
-        if (err.name !== 'AbortError') setError(err)
-      })
-      .finally(() => setLoading(false))
-    return () => controller.abort()
-  }, [userId])
-
-  return { user, loading, error }
-}
-
-// UserDashboard.tsx — 纯展示
-function UserDashboard({ userId }: { userId: string }) {
-  const { user, loading, error } = useUser(userId)
-  if (loading) return <Skeleton />
-  if (error) return <ErrorDisplay error={error} />
-  return <UserProfile user={user} />
-}
-```
-
-### Props 钻取修复（ISP）
-
-```typescript
-// 修复 Props 钻取 >3 层：使用 Context 或组合
-// 之前：A → B → C → D 层层传递，中间组件不关心但被迫接收
-function A() {
-  const [theme, setTheme] = useState('light')
-  return <B theme={theme} onThemeChange={setTheme} />
-}
-function B({ theme, onThemeChange }) {
-  return <C theme={theme} onThemeChange={onThemeChange} />
-}
-function C({ theme, onThemeChange }) {
-  return <D theme={theme} onThemeChange={onThemeChange} />
-}
-
-// 修复后：使用 Context 直接注入，跳过中间层
-const ThemeContext = createContext<ThemeValue>({ theme: 'light', setTheme: () => {} })
-function A() {
-  const [theme, setTheme] = useState('light')
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      <B />
-    </ThemeContext.Provider>
-  )
-}
-function D() {
-  const { theme, setTheme } = useContext(ThemeContext)
-  // 直接使用，无需中间层传递
-}
-```
-
-### 依赖倒置修复（DIP）
-
-```typescript
-// 修复直接依赖具体实现：引入 Service 抽象层
-// 之前：组件直接调用 fetch
-// 修复后：
-// services/productService.ts
-export const productService = {
-  async list(): Promise<Product[]> {
-    const res = await fetch('/api/products')
-    if (!res.ok) throw new Error('Failed to fetch products')
-    return res.json()
-  }
-}
-```
-
-### 魔法数字/字符串修复
-
-```typescript
-// 修复硬编码值：提取为命名常量
-// 之前：if (user.age > 18 && status === 'active') { ... }
-// 修复后：
-const MIN_ADULT_AGE = 18
-const ACTIVE_STATUS = 'active' as const
-if (user.age > MIN_ADULT_AGE && status === ACTIVE_STATUS) { ... }
-```
-
-### 重复代码消除
-
-```typescript
-// 修复霰弹式修改：提取公共逻辑
-// 修复后：
-// utils/validators.ts
-export const validators = {
-  email: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-  required: (v: unknown) => v !== null && v !== undefined && v !== '',
-}
-// 各处导入使用，单一变更点
-```
+修复时遵循：等待第二个用例再抽象（Rule of Three）、组合优于继承、按职责拆分非按文件大小、先隔离行为再移动（增量重构）、用类型系统使非法状态不可表示
